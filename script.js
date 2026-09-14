@@ -120,9 +120,10 @@ function addRecord() {
     // Send to the Google Sheet
     sendToSheet({ name: personName, item, price, date });
 
-    // Invalidate the cached History data so the new purchase shows up next
+    // Refresh the cached History data in the background so it's ready by the
     // time the History tab is opened.
     historyData = null;
+    loadHistory();
 
     // Clear inputs and refresh the name selector (may now show a new chip)
     nameInput.value = '';
@@ -198,7 +199,12 @@ function pickWeek(value) {
     renderHistory();
 }
 
+let historyLoading = false;
+
 async function loadHistory() {
+    if (historyLoading) return; // a fetch is already in flight; don't race it
+    historyLoading = true;
+
     const list = document.getElementById('history_list');
     list.innerHTML = '<li class="history_empty">Loading...</li>';
     try {
@@ -208,6 +214,7 @@ async function loadHistory() {
         console.error('Failed to load history:', err);
         historyData = [];
     }
+    historyLoading = false;
     renderHistory();
 }
 
@@ -283,4 +290,9 @@ function renderHistory() {
         list.appendChild(li);
     });
 }
+
+// Apps Script has a slow "cold start" the first time it's called after being
+// idle. Kick off the History fetch now, in the background, so it's likely
+// already done by the time the History tab is actually opened.
+loadHistory();
 
