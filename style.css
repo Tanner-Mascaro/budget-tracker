@@ -77,6 +77,166 @@ h2 {
     color: white;
 }
 
+.tab_bar {
+    display: flex;
+    gap: 0.5rem;
+    margin: 0 1.5rem 1.2rem;
+    background-color: rgb(240, 241, 243);
+    border-radius: 1.2rem;
+    padding: 0.3rem;
+}
+
+.tab_button {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: rgb(110, 115, 121);
+    padding: 0.6rem;
+    border-radius: 1rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: none;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.tab_button.active {
+    background-color: white;
+    color: rgb(40, 44, 48);
+    box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.period_toggle {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.period_button {
+    flex: 1;
+    border: 1.5px solid rgb(225, 227, 230);
+    background-color: rgb(248, 249, 250);
+    color: rgb(90, 95, 101);
+    padding: 0.5rem;
+    border-radius: 1rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: none;
+}
+
+.period_button.active {
+    border-color: rgb(145, 205, 165);
+    background-color: rgb(145, 205, 165);
+    color: white;
+}
+
+.history_nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 0.8rem;
+}
+
+.nav_button {
+    border: none;
+    background-color: rgb(240, 241, 243);
+    color: rgb(40, 44, 48);
+    width: 2.2rem;
+    height: 2.2rem;
+    border-radius: 50%;
+    font-size: 1.2rem;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: none;
+    padding: 0;
+}
+
+.nav_button:disabled {
+    color: rgb(200, 203, 207);
+    cursor: default;
+    background-color: rgb(240, 241, 243);
+}
+
+.clear_filter_button {
+    display: block;
+    width: auto;
+    margin: 0 auto 0.6rem;
+    border: none;
+    background: none;
+    color: rgb(90, 165, 120);
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: underline;
+    cursor: pointer;
+    box-shadow: none;
+    padding: 0.2rem;
+}
+
+.calendar_button {
+    width: 1.8rem;
+    height: 1.8rem;
+}
+
+.hidden_picker {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+#period_label {
+    font-weight: 600;
+    color: rgb(40, 44, 48);
+    min-width: 9rem;
+}
+
+.history_total {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: rgb(90, 165, 120);
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.history_list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 40vh;
+    overflow-y: auto;
+    text-align: left;
+}
+
+.history_row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid rgb(240, 241, 243);
+    font-size: 0.95rem;
+}
+
+.history_row_name {
+    color: rgb(150, 155, 161);
+    font-size: 0.85rem;
+}
+
+.history_row_price {
+    font-weight: 600;
+    color: rgb(40, 44, 48);
+    white-space: nowrap;
+}
+
+.history_empty {
+    text-align: center;
+    color: rgb(150, 155, 161);
+    padding: 1rem 0;
+    list-style: none;
+}
+
 @media (max-height: 700px) {
     .input_card {
         padding: 1.3rem 0 1rem;
@@ -92,7 +252,7 @@ h2 {
         padding-bottom: .7rem;
     }
 
-    input, .name_chip, button {
+    input, .name_chip, .primary_button {
         padding: 0.7rem 1rem;
     }
 }
@@ -117,7 +277,7 @@ input:focus {
     background-color: white;
 }
 
-button {
+.primary_button {
     width: 100%;
     border: none;
     padding: 1rem;
@@ -131,12 +291,12 @@ button {
     transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
 }
 
-button:hover {
+.primary_button:hover {
     background-color: rgb(125, 190, 148);
     box-shadow: 0px 6px 14px rgba(145, 205, 165, 0.5);
 }
 
-button:active {
+.primary_button:active {
     background-color: rgb(110, 175, 133);
     transform: scale(0.98);
     box-shadow: 0px 2px 6px rgba(145, 205, 165, 0.4);

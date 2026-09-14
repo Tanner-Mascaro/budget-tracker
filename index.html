@@ -17,20 +17,56 @@
 
         <h2>Insert Purchase</h2>
 
-        <div class="card_childs">
-            <div id="name_selector"></div>
+        <div class="tab_bar">
+            <button type="button" class="tab_button active" id="tab_add" onclick="showView('add')">Add</button>
+            <button type="button" class="tab_button" id="tab_history" onclick="showView('history')">History</button>
         </div>
 
-        <div class="card_childs">
-            <input type="text" id="item" name="item" placeholder="Item">
+        <div id="view_add">
+            <div class="card_childs">
+                <div id="name_selector"></div>
+            </div>
+
+            <div class="card_childs">
+                <input type="text" id="item" name="item" placeholder="Item">
+            </div>
+
+            <div class="card_childs">
+                <input type="number" id="item_amount" placeholder="Amount">
+            </div>
+
+            <div class="card_childs">
+                <button class="primary_button" onclick="addRecord()">Add Purchase</button>
+            </div>
         </div>
 
-        <div class="card_childs">
-            <input type="number" id="item_amount" placeholder="Amount">
-        </div>
+        <div id="view_history" class="card_childs" style="display: none;">
+            <div class="period_toggle">
+                <button type="button" class="period_button active" id="mode_week" onclick="setHistoryMode('week')">Week</button>
+                <button type="button" class="period_button" id="mode_month" onclick="setHistoryMode('month')">Month</button>
+            </div>
 
-        <div class="card_childs">
-            <button onclick="addRecord()">Add Purchase</button>
+            <div class="history_nav">
+                <button type="button" class="nav_button" id="prev_period_btn" onclick="stepHistory(-1)">&lsaquo;</button>
+                <span id="period_label">All Purchases</span>
+                <button type="button" class="nav_button" id="next_period_btn" onclick="stepHistory(1)">&rsaquo;</button>
+                <button type="button" class="nav_button calendar_button" onclick="openPeriodPicker()" aria-label="Pick a date">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="5" width="18" height="16" rx="2"></rect>
+                        <line x1="3" y1="9" x2="21" y2="9"></line>
+                        <line x1="8" y1="3" x2="8" y2="7"></line>
+                        <line x1="16" y1="3" x2="16" y2="7"></line>
+                    </svg>
+                </button>
+                <input type="date" id="week_picker" class="hidden_picker" onchange="pickWeek(this.value)">
+                <input type="month" id="month_picker" class="hidden_picker" onchange="pickMonth(this.value)">
+            </div>
+
+            <button type="button" id="clear_filter_btn" class="clear_filter_button" onclick="clearHistoryFilter()" style="display: none;">Show all</button>
+
+            <div id="history_total" class="history_total"></div>
+
+            <ul id="history_list" class="history_list"></ul>
         </div>
     </div>
 
