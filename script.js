@@ -11,18 +11,91 @@ if ('serviceWorker' in navigator) {
 
 let csvRows = [['Name', 'Item', 'Price', 'Date']];
 
+// Remember up to two people's names so they only have to type them once each.
+const NAMES_KEY = 'budgetTracker_names';
+const SELECTED_NAME_KEY = 'budgetTracker_selectedName';
+const MAX_SAVED_NAMES = 2;
+
+const DEFAULT_NAMES = ['Tanner', 'Hannah'];
+
+function getSavedNames() {
+    try {
+        const stored = JSON.parse(localStorage.getItem(NAMES_KEY));
+        if (stored && stored.length > 0) {
+            return stored;
+        }
+    } catch {
+        // fall through to defaults
+    }
+    localStorage.setItem(NAMES_KEY, JSON.stringify(DEFAULT_NAMES));
+    return DEFAULT_NAMES;
+}
+
+function saveName(name) {
+    const names = getSavedNames();
+    if (!names.includes(name) && names.length < MAX_SAVED_NAMES) {
+        names.push(name);
+        localStorage.setItem(NAMES_KEY, JSON.stringify(names));
+    }
+}
+
+function getSelectedName() {
+    return localStorage.getItem(SELECTED_NAME_KEY) || getSavedNames()[0] || '';
+}
+
+function setSelectedName(name) {
+    localStorage.setItem(SELECTED_NAME_KEY, name);
+}
+
+function renderNameSelector() {
+    const container = document.getElementById('name_selector');
+    const names = getSavedNames();
+    const selected = getSelectedName();
+    container.innerHTML = '';
+
+    if (names.length > 0) {
+        const chipRow = document.createElement('div');
+        chipRow.className = 'name_chip_row';
+        names.forEach(name => {
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'name_chip' + (name === selected ? ' selected' : '');
+            chip.textContent = name;
+            chip.onclick = () => {
+                setSelectedName(name);
+                renderNameSelector();
+            };
+            chipRow.appendChild(chip);
+        });
+        container.appendChild(chipRow);
+    }
+
+    if (names.length < MAX_SAVED_NAMES) {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.id = 'new_person_name';
+        input.placeholder = names.length === 0 ? 'Your name' : 'Add another name';
+        container.appendChild(input);
+    }
+}
 
 function addRecord() {
-    const personNameInput = document.getElementById('person_name');
+    const newNameInput = document.getElementById('new_person_name');
     const nameInput = document.getElementById('item');
     const amountInput = document.getElementById('item_amount');
 
-    if (!personNameInput.value || !nameInput.value || !amountInput.value) {
+    let personName = getSelectedName();
+    if (newNameInput && newNameInput.value.trim()) {
+        personName = newNameInput.value.trim();
+        saveName(personName);
+        setSelectedName(personName);
+    }
+
+    if (!personName || !nameInput.value || !amountInput.value) {
         alert('Please fill out all fields!');
         return;
     }
 
-    const personName = personNameInput.value;
     const item = nameInput.value;
     const price = amountInput.value;
     const date = new Date().toLocaleDateString();
@@ -45,11 +118,13 @@ function addRecord() {
     // Send to the Google Sheet
     sendToSheet({ name: personName, item, price, date });
 
-    // Clear inputs
-    personNameInput.value = '';
+    // Clear inputs and refresh the name selector (may now show a new chip)
     nameInput.value = '';
     amountInput.value = '';
+    renderNameSelector();
 }
+
+renderNameSelector();
 
 // Send a single row to the Purchases Google Sheet via Apps Script Web App
 function sendToSheet(record) {
