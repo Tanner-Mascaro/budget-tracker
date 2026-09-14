@@ -132,12 +132,8 @@ function addRecord() {
 
 renderNameSelector();
 
-// Don't let the pickers select a future week/month
-{
-    const today = new Date();
-    document.getElementById('week_picker').max = today.toISOString().split('T')[0];
-    document.getElementById('month_picker').max = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-}
+// Don't let the picker select a future date
+document.getElementById('week_picker').max = new Date().toISOString().split('T')[0];
 
 // Send a single row to the Purchases Google Sheet via Apps Script Web App
 function sendToSheet(record) {
@@ -154,8 +150,7 @@ function sendToSheet(record) {
 // ---- History tab ----
 
 let historyData = null; // all purchases fetched from the sheet, cached after first load
-let historyMode = 'week'; // 'week' or 'month'; only matters once a filter is active
-let historyOffset = null; // null = no filter (show everything); 0 = current period, -1 = one back, etc.
+let historyOffset = null; // null = no filter (show everything); 0 = current week, -1 = one week back, etc.
 
 function showView(view) {
     document.getElementById('view_add').style.display = view === 'add' ? '' : 'none';
@@ -168,14 +163,6 @@ function showView(view) {
         // cached data so repeated taps can't race each other.
         loadHistory();
     }
-}
-
-function setHistoryMode(mode) {
-    historyMode = mode;
-    historyOffset = 0;
-    document.getElementById('mode_week').classList.toggle('active', mode === 'week');
-    document.getElementById('mode_month').classList.toggle('active', mode === 'month');
-    renderHistory();
 }
 
 function stepHistory(direction) {
@@ -195,10 +182,7 @@ function clearHistoryFilter() {
 }
 
 function openPeriodPicker() {
-    const picker = historyMode === 'week'
-        ? document.getElementById('week_picker')
-        : document.getElementById('month_picker');
-
+    const picker = document.getElementById('week_picker');
     if (picker.showPicker) {
         picker.showPicker();
     } else {
@@ -208,26 +192,9 @@ function openPeriodPicker() {
 
 function pickWeek(value) {
     if (!value) return;
-    historyMode = 'week';
-    document.getElementById('mode_week').classList.add('active');
-    document.getElementById('mode_month').classList.remove('active');
-
     const picked = new Date(`${value}T00:00:00`);
     const diffWeeks = Math.round((startOfWeek(picked) - startOfWeek(new Date())) / (7 * 24 * 60 * 60 * 1000));
     historyOffset = Math.min(0, diffWeeks);
-    renderHistory();
-}
-
-function pickMonth(value) {
-    if (!value) return;
-    historyMode = 'month';
-    document.getElementById('mode_month').classList.add('active');
-    document.getElementById('mode_week').classList.remove('active');
-
-    const [year, month] = value.split('-').map(Number);
-    const now = new Date();
-    const diffMonths = (year - now.getFullYear()) * 12 + (month - 1 - now.getMonth());
-    historyOffset = Math.min(0, diffMonths);
     renderHistory();
 }
 
@@ -252,21 +219,13 @@ function startOfWeek(date) {
     return d;
 }
 
-function getPeriodRange(mode, offset) {
-    const now = new Date();
-    if (mode === 'week') {
-        const start = startOfWeek(now);
-        start.setDate(start.getDate() + offset * 7);
-        const end = new Date(start);
-        end.setDate(end.getDate() + 6);
-        end.setHours(23, 59, 59, 999);
-        const label = `${start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
-        return { start, end, label };
-    }
-
-    const start = new Date(now.getFullYear(), now.getMonth() + offset, 1);
-    const end = new Date(now.getFullYear(), now.getMonth() + offset + 1, 0, 23, 59, 59, 999);
-    const label = start.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+function getWeekRange(offset) {
+    const start = startOfWeek(new Date());
+    start.setDate(start.getDate() + offset * 7);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+    const label = `${start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
     return { start, end, label };
 }
 
@@ -291,7 +250,7 @@ function renderHistory() {
         nextBtn.disabled = true;
         clearBtn.style.display = 'none';
     } else {
-        const range = getPeriodRange(historyMode, historyOffset);
+        const range = getWeekRange(historyOffset);
         purchases = historyData.filter(p => {
             const purchaseDate = new Date(p.date);
             return purchaseDate >= range.start && purchaseDate <= range.end;
@@ -306,7 +265,7 @@ function renderHistory() {
     const sorted = [...purchases].sort((a, b) => new Date(b.date) - new Date(a.date));
 
     const total = sorted.reduce((sum, p) => sum + (parseFloat(p.price) || 0), 0);
-    totalEl.textContent = `Total: $${total.toFixed(2)}`;
+    totalEl.textContent = `$${total.toFixed(2)}`;
 
     list.innerHTML = '';
     if (sorted.length === 0) {

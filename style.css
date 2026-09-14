@@ -106,31 +106,6 @@ h2 {
     box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.1);
 }
 
-.period_toggle {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-}
-
-.period_button {
-    flex: 1;
-    border: 1.5px solid rgb(225, 227, 230);
-    background-color: rgb(248, 249, 250);
-    color: rgb(90, 95, 101);
-    padding: 0.5rem;
-    border-radius: 1rem;
-    font-size: 0.9rem;
-    font-weight: 600;
-    cursor: pointer;
-    box-shadow: none;
-}
-
-.period_button.active {
-    border-color: rgb(145, 205, 165);
-    background-color: rgb(145, 205, 165);
-    color: white;
-}
-
 .history_nav {
     display: flex;
     align-items: center;
@@ -194,11 +169,11 @@ h2 {
 }
 
 .history_total {
-    font-size: 1.3rem;
+    font-size: 2rem;
     font-weight: 700;
     color: rgb(90, 165, 120);
     text-align: center;
-    margin-bottom: 1rem;
+    margin-bottom: 0.8rem;
 }
 
 .history_list {
@@ -208,14 +183,18 @@ h2 {
     max-height: 40vh;
     overflow-y: auto;
     text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
 }
 
 .history_row {
     display: flex;
     justify-content: space-between;
-    align-items: baseline;
-    padding: 0.6rem 0;
-    border-bottom: 1px solid rgb(240, 241, 243);
+    align-items: center;
+    padding: 0.9rem 1.1rem;
+    border-radius: 1.2rem;
+    background-color: rgb(248, 249, 250);
     font-size: 0.95rem;
 }
 

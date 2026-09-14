@@ -41,10 +41,7 @@
         </div>
 
         <div id="view_history" class="card_childs" style="display: none;">
-            <div class="period_toggle">
-                <button type="button" class="period_button active" id="mode_week" onclick="setHistoryMode('week')">Week</button>
-                <button type="button" class="period_button" id="mode_month" onclick="setHistoryMode('month')">Month</button>
-            </div>
+            <div id="history_total" class="history_total"></div>
 
             <div class="history_nav">
                 <button type="button" class="nav_button" id="prev_period_btn" onclick="stepHistory(-1)">&lsaquo;</button>
@@ -59,12 +56,9 @@
                     </svg>
                 </button>
                 <input type="date" id="week_picker" class="hidden_picker" onchange="pickWeek(this.value)">
-                <input type="month" id="month_picker" class="hidden_picker" onchange="pickMonth(this.value)">
             </div>
 
             <button type="button" id="clear_filter_btn" class="clear_filter_button" onclick="clearHistoryFilter()" style="display: none;">Show all</button>
-
-            <div id="history_total" class="history_total"></div>
 
             <ul id="history_list" class="history_list"></ul>
         </div>
