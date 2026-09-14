@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Budget Tracker</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/x-icon" href="/images/favicon.ico">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="images/icon-192.png">
+    <meta name="theme-color" content="#91cda5">
+</head>
+
+<body>
+    <div class="input_card">
+
+        <h2>Insert Purchase</h2>
+
+        <div class="card_childs">
+            <input type="text" id="person_name" name="person_name" placeholder="Name">
+        </div>
+
+        <div class="card_childs">
+            <input type="text" id="item" name="item" placeholder="Item">
+        </div>
+
+        <div class="card_childs">
+            <input type="number" id="item_amount" placeholder="Amount">
+        </div>
+
+        <div class="card_childs">
+            <button onclick="addRecord()">Add Purchase</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
