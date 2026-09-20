@@ -1,7 +1,7 @@
 
 
 // TODO: replace with your Apps Script Web App /exec URL once deployed
-const SHEET_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzCW4Q2j493S0RL-_iOCkeVvpwrE5uDJ7ruV2akIKBFghXinxsdm1Zfw3n93E8aosj7Hg/exec';
+const SHEET_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwlw-duQNLD_DEXvlFAS1lWFfWl53ZDmhE3FAZYVeFUL-_h1zE9gHYSMQZtFuTyxT5_RQ/exec';
 
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
@@ -79,6 +79,20 @@ function renderNameSelector() {
     }
 }
 
+// Local YYYY-MM-DD (toISOString would flip to "tomorrow" in the evening for US time zones).
+function localDayString(date) {
+    const pad = n => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+// Day a stored purchase belongs to, as local YYYY-MM-DD.
+function dayOf(value) {
+    const text = String(value);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+    const d = new Date(text);
+    return isNaN(d) ? '' : localDayString(d);
+}
+
 function addRecord() {
     const newNameInput = document.getElementById('new_person_name');
     const nameInput = document.getElementById('item');
@@ -100,7 +114,7 @@ function addRecord() {
     const price = amountInput.value;
     // YYYY-MM-DD avoids locale ambiguity (Sheets otherwise reinterprets M/D/Y
     // vs D/M/Y based on its own locale setting, silently corrupting dates)
-    const date = new Date().toISOString().split('T')[0];
+    const date = localDayString(new Date());
 
     // Clean data to prevent CSV corruption (escape internal quotes)
     const cleanPersonName = `"${personName.replace(/"/g, '""')}"`;
@@ -120,10 +134,15 @@ function addRecord() {
     // Send to the Google Sheet
     sendToSheet({ name: personName, item, price, date });
 
-    // Refresh the cached History data in the background so it's ready by the
-    // time the History tab is opened.
-    historyData = null;
-    loadHistory();
+    // Update the list locally right away instead of waiting on the sheet.
+    const record = { name: personName, item, price, date };
+    if (historyData !== null) {
+        historyData.push(record);
+    }
+    recentRecords.push(record);
+    renderHistory();
+
+    flashAddButton();
 
     // Clear inputs and refresh the name selector (may now show a new chip)
     nameInput.value = '';
@@ -133,8 +152,176 @@ function addRecord() {
 
 renderNameSelector();
 
-// Don't let the picker select a future date
-document.getElementById('week_picker').max = new Date().toISOString().split('T')[0];
+// ---- Button feedback ----
+
+let flashTimer = null;
+let toastTimer = null;
+
+function showToast(message) {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+// Small burst of confetti from the button.
+const SPARK_COLORS = ['#5aa578', '#91cda5', '#ffd166', '#ff8fa3', '#7c9cf5', '#ffffff'];
+
+function launchSparks(origin) {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const rect = origin.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+
+    for (let i = 0; i < 22; i++) {
+        const spark = document.createElement('span');
+        const size = 5 + Math.random() * 5;
+        spark.style.cssText = `position:fixed;left:${cx}px;top:${cy}px;width:${size}px;height:${size}px;` +
+            `border-radius:${Math.random() < 0.5 ? '50%' : '2px'};pointer-events:none;z-index:1000;` +
+            `background:${SPARK_COLORS[i % SPARK_COLORS.length]}`;
+        document.body.appendChild(spark);
+
+        const angle = Math.random() * Math.PI * 2;
+        const distance = 50 + Math.random() * 90;
+        const dx = Math.cos(angle) * distance;
+        const dy = Math.sin(angle) * distance - 30; // bias upward
+        spark.animate([
+            { transform: 'translate(-50%, -50%) scale(1)', opacity: 1 },
+            { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy + 60}px)) rotate(${Math.random() * 540}deg) scale(0.4)`, opacity: 0 },
+        ], { duration: 700 + Math.random() * 300, easing: 'cubic-bezier(0.15, 0.7, 0.3, 1)' })
+            .onfinish = () => spark.remove();
+    }
+}
+
+// Short two-note chime, synthesized so no audio file is needed.
+let audioCtx = null;
+
+function playChime() {
+    try {
+        audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+        const now = audioCtx.currentTime;
+        [880, 1318.5].forEach((freq, i) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = freq;
+            const start = now + i * 0.09;
+            gain.gain.setValueAtTime(0.0001, start);
+            gain.gain.exponentialRampToValueAtTime(0.18, start + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.35);
+            osc.connect(gain).connect(audioCtx.destination);
+            osc.start(start);
+            osc.stop(start + 0.4);
+        });
+    } catch {
+        // sound is optional
+    }
+}
+
+function flashAddButton() {
+    const button = document.getElementById('add_button');
+    button.textContent = 'Added \u2713';
+    button.classList.add('done');
+    showToast('\u2713 Added to History');
+    launchSparks(button);
+    playChime();
+    clearTimeout(flashTimer);
+    flashTimer = setTimeout(() => {
+        button.textContent = 'Add Purchase';
+        button.classList.remove('done');
+    }, 1400);
+}
+
+// ---- Edit / delete ----
+
+const recentRecords = []; // purchases added this session; merged into the list if a fetch lands without them
+
+function formatPrice(price) {
+    return `$${(parseFloat(price) || 0).toFixed(2)}`;
+}
+
+function deleteRecord(record) {
+    if (!confirm(`Delete "${record.item}" (${formatPrice(record.price)})?`)) return;
+
+    sendToSheet({ action: 'delete', original: { ...record } });
+
+    [historyData, recentRecords].forEach(list => {
+        const i = list ? list.indexOf(record) : -1;
+        if (i !== -1) list.splice(i, 1);
+    });
+    renderHistory();
+}
+
+function editRecord(record) {
+    const newItem = prompt('Item:', record.item);
+    if (newItem === null) return;
+    const newPrice = prompt('Amount:', record.price);
+    if (newPrice === null) return;
+
+    if (!newItem.trim() || isNaN(parseFloat(newPrice))) {
+        alert('Please enter an item and a valid amount.');
+        return;
+    }
+
+    const original = { ...record };
+    record.item = newItem.trim();
+    record.price = String(parseFloat(newPrice));
+
+    sendToSheet({ action: 'edit', original, updated: { item: record.item, price: record.price } });
+
+    renderHistory();
+}
+
+function makeActionButton(label, title, handler) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'row_action';
+    button.textContent = label;
+    button.title = title;
+    button.setAttribute('aria-label', title);
+    button.onclick = handler;
+    return button;
+}
+
+// Local-midnight parse for plain YYYY-MM-DD so the day doesn't shift with time zone.
+function formatShortDate(value) {
+    const text = String(value);
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(text) ? new Date(`${text}T00:00:00`) : new Date(text);
+    return isNaN(d) ? '' : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function buildPurchaseRow(record) {
+    const li = document.createElement('li');
+    li.className = 'history_row';
+
+    const avatar = document.createElement('span');
+    const personIndex = getSavedNames().indexOf(record.name);
+    avatar.className = `avatar avatar_${personIndex === -1 ? 'other' : personIndex}`;
+    avatar.textContent = (record.name || '?').trim().charAt(0).toUpperCase();
+
+    const main = document.createElement('span');
+    main.className = 'history_row_main';
+    const item = document.createElement('span');
+    item.className = 'history_row_item';
+    item.textContent = record.item;
+    const meta = document.createElement('span');
+    meta.className = 'history_row_name';
+    meta.textContent = [record.name, formatShortDate(record.date)].filter(Boolean).join(' \u00B7 ');
+    main.append(item, meta);
+
+    const price = document.createElement('span');
+    price.className = 'history_row_price';
+    price.textContent = formatPrice(record.price);
+
+    const actions = document.createElement('span');
+    actions.className = 'row_actions';
+    actions.appendChild(makeActionButton('\u270E', 'Edit', () => editRecord(record)));
+    actions.appendChild(makeActionButton('\u2715', 'Delete', () => deleteRecord(record)));
+
+    li.append(avatar, main, price, actions);
+    return li;
+}
 
 // Send a single row to the Purchases Google Sheet via Apps Script Web App
 function sendToSheet(record) {
@@ -150,53 +337,181 @@ function sendToSheet(record) {
 
 // ---- History tab ----
 
-let historyData = null; // all purchases fetched from the sheet, cached after first load
-let historyOffset = null; // null = no filter (show everything); 0 = current week, -1 = one week back, etc.
+const HISTORY_CACHE_KEY = 'budgetTracker_history';
+
+// Show the last-known list instantly (Apps Script is slow to respond); the
+// background fetch below then refreshes it.
+function readHistoryCache() {
+    try {
+        const cached = JSON.parse(localStorage.getItem(HISTORY_CACHE_KEY));
+        return Array.isArray(cached) ? cached : null;
+    } catch {
+        return null;
+    }
+}
+
+function writeHistoryCache() {
+    try {
+        localStorage.setItem(HISTORY_CACHE_KEY, JSON.stringify(historyData));
+    } catch {
+        // cache is only an optimization
+    }
+}
+
+let historyData = readHistoryCache(); // all purchases; from cache first, then the sheet
+let historyRange = null; // null = no filter (show everything); otherwise { start, end } as local YYYY-MM-DD
 
 function showView(view) {
     document.getElementById('view_add').style.display = view === 'add' ? '' : 'none';
     document.getElementById('view_history').style.display = view === 'history' ? '' : 'none';
     document.getElementById('tab_add').classList.toggle('active', view === 'add');
     document.getElementById('tab_history').classList.toggle('active', view === 'history');
-
-    if (view === 'history' && historyData === null) {
-        // Only fetch the first time History is opened; later opens reuse the
-        // cached data so repeated taps can't race each other.
-        loadHistory();
-    }
+    document.getElementById('page_title').textContent = view === 'add' ? 'New Purchase' : 'History';
+    window.scrollTo(0, 0);
 }
 
+// ---- Date range helpers (all "days" are local YYYY-MM-DD strings) ----
+
+function parseDay(day) {
+    const [y, m, d] = day.split('-').map(Number);
+    return new Date(y, m - 1, d);
+}
+
+function addDays(day, n) {
+    const d = parseDay(day);
+    d.setDate(d.getDate() + n);
+    return localDayString(d);
+}
+
+function daysBetween(from, to) {
+    return Math.round((parseDay(to) - parseDay(from)) / 86400000);
+}
+
+function formatDay(day) {
+    return parseDay(day).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function formatRange(range) {
+    return range.start === range.end ? formatDay(range.start) : `${formatDay(range.start)} \u2013 ${formatDay(range.end)}`;
+}
+
+function currentWeekRange() {
+    const start = localDayString(startOfWeek(new Date()));
+    return { start, end: addDays(start, 6) };
+}
+
+// Arrows move the selected range back/forward by its own length.
 function stepHistory(direction) {
-    if (historyOffset === null) {
-        // Not filtered yet: jump straight into the current period.
-        historyOffset = 0;
+    if (historyRange === null) {
+        // Not filtered yet: jump straight into the current week.
+        historyRange = currentWeekRange();
     } else {
-        // never allow going past the current period
-        historyOffset = Math.min(0, historyOffset + direction);
+        const length = daysBetween(historyRange.start, historyRange.end) + 1;
+        historyRange = {
+            start: addDays(historyRange.start, direction * length),
+            end: addDays(historyRange.end, direction * length),
+        };
     }
     renderHistory();
 }
 
 function clearHistoryFilter() {
-    historyOffset = null;
+    historyRange = null;
     renderHistory();
 }
+
+// ---- Range picker (tap a start day, then an end day) ----
+
+let calMonth = null; // first day of the month being shown
+let calStart = null;
+let calEnd = null;
 
 function openPeriodPicker() {
-    const picker = document.getElementById('week_picker');
-    if (picker.showPicker) {
-        picker.showPicker();
-    } else {
-        picker.focus();
-    }
+    const today = localDayString(new Date());
+    calStart = historyRange ? historyRange.start : null;
+    calEnd = historyRange ? historyRange.end : null;
+    calMonth = parseDay((calEnd || today).slice(0, 8) + '01');
+    document.getElementById('range_modal').style.display = 'flex';
+    renderCalendar();
 }
 
-function pickWeek(value) {
-    if (!value) return;
-    const picked = new Date(`${value}T00:00:00`);
-    const diffWeeks = Math.round((startOfWeek(picked) - startOfWeek(new Date())) / (7 * 24 * 60 * 60 * 1000));
-    historyOffset = Math.min(0, diffWeeks);
+function closePeriodPicker() {
+    document.getElementById('range_modal').style.display = 'none';
+}
+
+function stepCalMonth(direction) {
+    calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + direction, 1);
+    renderCalendar();
+}
+
+function pickCalDay(day) {
+    if (!calStart || calEnd) {
+        // Starting a fresh selection
+        calStart = day;
+        calEnd = null;
+    } else if (day < calStart) {
+        calEnd = calStart;
+        calStart = day;
+    } else {
+        calEnd = day;
+    }
+    renderCalendar();
+}
+
+function setCalRange(start, end) {
+    const today = localDayString(new Date());
+    calStart = start;
+    calEnd = end > today ? today : end;
+    calMonth = parseDay(calStart.slice(0, 8) + '01');
+    renderCalendar();
+}
+
+function applyPeriodPicker() {
+    if (!calStart) return;
+    historyRange = { start: calStart, end: calEnd || calStart };
+    closePeriodPicker();
     renderHistory();
+}
+
+function renderCalendar() {
+    const today = localDayString(new Date());
+    const year = calMonth.getFullYear();
+    const month = calMonth.getMonth();
+
+    document.getElementById('cal_title').textContent =
+        calMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    document.getElementById('cal_next_month').disabled = localDayString(new Date(year, month + 1, 1)) > today;
+
+    const grid = document.getElementById('cal_grid');
+    grid.innerHTML = '';
+    for (let i = 0; i < calMonth.getDay(); i++) {
+        grid.appendChild(document.createElement('span'));
+    }
+
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const selectedEnd = calEnd || calStart;
+    for (let d = 1; d <= lastDay; d++) {
+        const day = localDayString(new Date(year, month, d));
+        const cell = document.createElement('button');
+        cell.type = 'button';
+        cell.className = 'cal_day';
+        cell.textContent = d;
+        if (day > today) {
+            cell.disabled = true;
+        }
+        if (day === today) cell.classList.add('cal_today');
+        if (calStart && day >= calStart && day <= selectedEnd) cell.classList.add('in_range');
+        if (day === calStart) cell.classList.add('range_start');
+        if (day === selectedEnd) cell.classList.add('range_end');
+        cell.onclick = () => pickCalDay(day);
+        grid.appendChild(cell);
+    }
+
+    const hint = document.getElementById('cal_hint');
+    if (!calStart) hint.textContent = 'Tap a start date';
+    else if (!calEnd) hint.textContent = `${formatDay(calStart)} \u2013 tap an end date, or Apply for one day`;
+    else hint.textContent = formatRange({ start: calStart, end: calEnd });
+    document.getElementById('cal_apply').disabled = !calStart;
 }
 
 let historyLoading = false;
@@ -205,14 +520,26 @@ async function loadHistory() {
     if (historyLoading) return; // a fetch is already in flight; don't race it
     historyLoading = true;
 
-    const list = document.getElementById('history_list');
-    list.innerHTML = '<li class="history_empty">Loading...</li>';
+    if (historyData === null) {
+        document.getElementById('history_list').innerHTML = '<li class="history_empty">Loading...</li>';
+    }
     try {
         const response = await fetch(SHEET_WEBAPP_URL);
-        historyData = await response.json();
+        const fetched = await response.json();
+        if (!Array.isArray(fetched)) throw new Error('Unexpected response');
+
+        // Purchases added this session may not be in the sheet response yet; keep
+        // them (and reuse their objects so edit/delete still work on them).
+        recentRecords.forEach(record => {
+            const i = fetched.findIndex(p => p.name === record.name && p.item === record.item &&
+                parseFloat(p.price) === parseFloat(record.price));
+            if (i !== -1) fetched[i] = record;
+            else fetched.push(record);
+        });
+        historyData = fetched;
     } catch (err) {
         console.error('Failed to load history:', err);
-        historyData = [];
+        if (historyData === null) historyData = [];
     }
     historyLoading = false;
     renderHistory();
@@ -226,14 +553,32 @@ function startOfWeek(date) {
     return d;
 }
 
-function getWeekRange(offset) {
-    const start = startOfWeek(new Date());
-    start.setDate(start.getDate() + offset * 7);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 6);
-    end.setHours(23, 59, 59, 999);
-    const label = `${start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
-    return { start, end, label };
+function renderToday() {
+    const today = localDayString(new Date());
+    const todays = (historyData || []).filter(p => dayOf(p.date) === today);
+    const total = todays.reduce((sum, p) => sum + (parseFloat(p.price) || 0), 0);
+
+    document.getElementById('today_total').textContent = formatPrice(total);
+    document.getElementById('today_count').textContent = todays.length === 0
+        ? 'Nothing added yet today'
+        : `${todays.length} purchase${todays.length === 1 ? '' : 's'}`;
+
+    const people = document.getElementById('today_people');
+    people.innerHTML = '';
+    if (todays.length === 0) return;
+
+    getSavedNames().forEach((name, index) => {
+        const spent = todays
+            .filter(p => p.name === name)
+            .reduce((sum, p) => sum + (parseFloat(p.price) || 0), 0);
+        const chip = document.createElement('span');
+        chip.className = 'today_person';
+        const dot = document.createElement('span');
+        dot.className = `avatar avatar_${index} avatar_small`;
+        dot.textContent = name.trim().charAt(0).toUpperCase();
+        chip.append(dot, `${formatPrice(spent)}`);
+        people.appendChild(chip);
+    });
 }
 
 function renderHistory() {
@@ -245,11 +590,13 @@ function renderHistory() {
     const clearBtn = document.getElementById('clear_filter_btn');
 
     if (historyData === null) {
-        return; // still loading
+        return; // nothing cached and still loading
     }
 
+    renderToday();
+
     let purchases;
-    if (historyOffset === null) {
+    if (historyRange === null) {
         // No filter applied: show everything.
         purchases = historyData;
         periodLabel.textContent = 'All Purchases';
@@ -257,42 +604,37 @@ function renderHistory() {
         nextBtn.disabled = true;
         clearBtn.style.display = 'none';
     } else {
-        const range = getWeekRange(historyOffset);
+        // Compare local calendar days as strings; parsing "YYYY-MM-DD" with
+        // new Date() lands on UTC midnight, which is the evening before here.
         purchases = historyData.filter(p => {
-            const purchaseDate = new Date(p.date);
-            return purchaseDate >= range.start && purchaseDate <= range.end;
+            const day = dayOf(p.date);
+            return day >= historyRange.start && day <= historyRange.end;
         });
-        periodLabel.textContent = range.label;
+        periodLabel.textContent = formatRange(historyRange);
         prevBtn.disabled = false;
-        nextBtn.disabled = historyOffset >= 0;
+        nextBtn.disabled = historyRange.end >= localDayString(new Date());
         clearBtn.style.display = '';
     }
 
-    // Newest first
-    const sorted = [...purchases].sort((a, b) => new Date(b.date) - new Date(a.date));
+    writeHistoryCache();
+
+    // Newest first (reverse first so later entries win ties on the same date)
+    const sorted = [...purchases].reverse().sort((a, b) => dayOf(b.date).localeCompare(dayOf(a.date)));
 
     const total = sorted.reduce((sum, p) => sum + (parseFloat(p.price) || 0), 0);
     totalEl.textContent = `$${total.toFixed(2)}`;
 
     list.innerHTML = '';
     if (sorted.length === 0) {
-        list.innerHTML = '<li class="history_empty">No purchases.</li>';
+        list.innerHTML = '<li class="history_empty">No purchases yet</li>';
         return;
     }
 
-    sorted.forEach(p => {
-        const li = document.createElement('li');
-        li.className = 'history_row';
-        li.innerHTML = `
-            <span class="history_row_main">${p.item} <span class="history_row_name">— ${p.name}</span></span>
-            <span class="history_row_price">$${parseFloat(p.price).toFixed(2)}</span>
-        `;
-        list.appendChild(li);
-    });
+    sorted.forEach(p => list.appendChild(buildPurchaseRow(p)));
 }
 
-// Apps Script has a slow "cold start" the first time it's called after being
-// idle. Kick off the History fetch now, in the background, so it's likely
-// already done by the time the History tab is actually opened.
+// Apps Script has a slow "cold start", so draw the cached list immediately and
+// refresh it from the sheet in the background.
+renderHistory();
 loadHistory();
 
